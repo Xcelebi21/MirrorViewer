@@ -6,8 +6,10 @@ class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
     var spinner: UIActivityIndicatorView!
     var errorOverlay: UIView!
 
-    // Always tell the server we want a scaled mirror, full-screen.
-    static let suffix = "?autoconnect=true&resize=scale&path=websockify"
+    // TrollVNC serves static noVNC files over HTTP, but the RFB/WebSocket
+    // endpoint lives on the VNC port itself. So the web port and the socket
+    // port differ, and `path` must be empty (noVNC defaults to "websockify",
+    // which TrollVNC 404s).
 
     override func loadView() {
         let config = WKWebViewConfiguration()
@@ -47,7 +49,8 @@ class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
 
     // No URL saved / user cancelled -> load the default URL so the screen is never black.
     func loadDefault() {
-        if let url = URL(string: "http://100.64.0.1:8081/vnc.html\(Self.suffix)") {
+        let text = "192.168.50.188:8081"
+        if let url = buildURL(from: text) {
             UserDefaults.standard.set(url.absoluteString, forKey: "mirrorURL")
             load(url)
         }
@@ -60,9 +63,9 @@ class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
     }
 
     func promptForURL(defaultURL: String? = nil) {
-        let defaultText = defaultURL ?? "http://100.64.0.1:8081/vnc.html"
+        let defaultText = defaultURL ?? "192.168.50.188:8081"
         let alert = UIAlertController(title: "Mirror URL",
-                                       message: "Enter the noVNC page on the other phone, e.g. http://100.x.y.z:8081/vnc.html",
+                                       message: "Enter the other phone's address. Use its web port (8081) — the VNC port is detected automatically.",
                                        preferredStyle: .alert)
         alert.addTextField {
             $0.text = defaultText
@@ -71,7 +74,18 @@ class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
             $0.autocapitalizationType = .none
             $0.keyboardType = .URL
         }
+        alert.addTextField {
+            $0.placeholder = "Password (optional)"
+            $0.isSecureTextEntry = true
+            $0.autocorrectionType = .no
+            $0.autocapitalizationType = .none
+            if let saved = UserDefaults.standard.string(forKey: "mirrorPassword") {
+                $0.text = saved
+            }
+        }
         alert.addAction(UIAlertAction(title: "Connect", style: .default) { [weak self] _ in
+            let pw = alert.textFields?.last?.text ?? ""
+            UserDefaults.standard.set(pw, forKey: "mirrorPassword")
             guard let t = alert.textFields?.first?.text else {
                 self?.loadDefault(); return
             }
@@ -83,17 +97,39 @@ class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
         present(alert, animated: true)
     }
 
+    /// Accepts "ip", "ip:port", "host:port", or a full URL and returns a noVNC
+    /// URL wired to TrollVNC's real WebSocket endpoint.
+    func buildURL(from input: String) -> URL? {
+        var text = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return nil }
+        if !text.contains("://") { text = "http://" + text }
+
+        // Strip any path/query the user pasted; we rebuild them.
+        guard var comps = URLComponents(string: text) else { return nil }
+        guard let host = comps.host, !host.isEmpty else { return nil }
+
+        let webPort = comps.port ?? 8081
+        // TrollVNC's RFB/WebSocket listener defaults to 5901. If the user gave
+        // the web port only, assume the default VNC port.
+        let sockPort = (webPort == 8081 || webPort == 5801) ? 5901 : webPort
+
+        var q: [URLComponentsQueryItem] = [
+            URLComponentsQueryItem(name: "host", value: host),
+            URLComponentsQueryItem(name: "port", value: String(sockPort)),
+            URLComponentsQueryItem(name: "path", value: ""),
+            URLComponentsQueryItem(name: "autoconnect", value: "true"),
+            URLComponentsQueryItem(name: "resize", value: "scale"),
+        ]
+        if let saved = UserDefaults.standard.string(forKey: "mirrorPassword"), !saved.isEmpty {
+            q.append(URLComponentsQueryItem(name: "password", value: saved))
+        }
+        comps.path = "/novnc/vnc.html"
+        comps.queryItems = q
+        return comps.url
+    }
+
     func acceptURL(_ raw: String) {
-        var raw = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !raw.contains("://") { raw = "http://" + raw }
-        // If the user typed the page, keep it; if they typed a bare IP:port, add vnc.html.
-        if !raw.contains(".html") {
-            raw = raw.hasSuffix("/") ? raw + "vnc.html" : raw + "/vnc.html"
-        }
-        if !raw.contains("?") {
-            raw += Self.suffix
-        }
-        if let url = URL(string: raw) {
+        if let url = buildURL(from: raw) {
             UserDefaults.standard.set(url.absoluteString, forKey: "mirrorURL")
             load(url)
         } else {
