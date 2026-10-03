@@ -193,10 +193,11 @@ var q: [URLQueryItem] = [
 
     @objc func editTapped() { promptForURL() }
 
-    // Force true full-screen (no status bar / home-indicator chrome).
+    // Full-screen mirror, but KEEP the home indicator visible so the user can
+    // always swipe back to the home screen (auto-hiding it strands them).
     override var prefersStatusBarHidden: Bool { true }
     override var preferredStatusBarUpdateAnimation: UIStatusBarAnimation { .fade }
-    override var prefersHomeIndicatorAutoHidden: Bool { true }
+    override var prefersHomeIndicatorAutoHidden: Bool { false }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { spinner.stopAnimating() }
 
