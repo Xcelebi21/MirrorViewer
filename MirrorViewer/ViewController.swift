@@ -113,12 +113,16 @@ class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
         // the web port only, assume the default VNC port.
         let sockPort = (webPort == 8081 || webPort == 5801) ? 5901 : webPort
 
-        var q: [URLQueryItem] = [
-            URLQueryItem(name: "host", value: host),
-            URLQueryItem(name: "port", value: String(sockPort)),
-            URLQueryItem(name: "path", value: ""),
-            URLQueryItem(name: "autoconnect", value: "true"),
-            URLQueryItem(name: "resize", value: "scale"),
+var q: [URLQueryItem] = [
+            URLComponentsQueryItem(name: "host", value: host),
+            URLComponentsQueryItem(name: "port", value: String(sockPort)),
+            URLComponentsQueryItem(name: "path", value: ""),
+            URLComponentsQueryItem(name: "autoconnect", value: "true"),
+            URLComponentsQueryItem(name: "resize", value: "scale"),
+            // TrollVNC's RFB port speaks plaintext RFB (no TLS), so the
+            // WebSocket MUST be ws:// not wss://. noVNC otherwise infers
+            // encryption from the page URL and the handshake fails.
+            URLComponentsQueryItem(name: "encrypt", value: "0"),
         ]
         if let saved = UserDefaults.standard.string(forKey: "mirrorPassword"), !saved.isEmpty {
             q.append(URLQueryItem(name: "password", value: saved))
