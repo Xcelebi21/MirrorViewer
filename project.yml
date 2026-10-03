@@ -1,0 +1,22 @@
+name: MirrorViewer
+options:
+  bundleIdPrefix: com.gaven
+settings:
+  base:
+    IPHONEOS_DEPLOYMENT_TARGET: '16.0'
+    SWIFT_VERSION: '5.0'
+targets:
+  MirrorViewer:
+    type: application
+    platform: iOS
+    sources:
+      - path: MirrorViewer
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gaven.mirrorviewer
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGN_IDENTITY: ''
+        INFOPLIST_FILE: MirrorViewer/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        PRODUCT_NAME: MirrorViewer
