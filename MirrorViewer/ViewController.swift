@@ -5,6 +5,7 @@ class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
     var webView: WKWebView!
     var spinner: UIActivityIndicatorView!
     var errorOverlay: UIView!
+    var statusLabel: UILabel!
 
     // TrollVNC serves static noVNC files over HTTP, but the RFB/WebSocket
     // endpoint lives on the VNC port itself. So the web port and the socket
@@ -37,14 +38,47 @@ class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
             spinner.centerYAnchor.constraint(equalTo: view.centerYAnchor),
         ])
 
-        buildErrorOverlay()
+buildErrorOverlay()
 
+        // Small always-on-top readout so a failure is never a silent void.
+        statusLabel = UILabel()
+        statusLabel.textColor = UIColor.systemYellow.withAlphaComponent(0.9)
+        statusLabel.font = .monospacedSystemFont(ofSize: 9, weight: .regular)
+        statusLabel.textAlignment = .center
+        statusLabel.numberOfLines = 2
+        statusLabel.isUserInteractionEnabled = false
+        statusLabel.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(statusLabel)
+        NSLayoutConstraint.activate([
+            statusLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 2),
+            statusLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 4),
+            statusLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -4),
+        ])
+
+        // Always re-derive the URL from whatever we have stored. A URL saved
+        // by an older build (e.g. encrypt=1 / path=websockify) would otherwise
+        // be replayed verbatim and connect to nothing.
         if let saved = UserDefaults.standard.string(forKey: "mirrorURL"),
-           let url = URL(string: saved) {
-            load(url)
+           let rebuilt = rebuild(fromStored: saved) {
+            load(rebuilt)
         } else {
             promptForURL()
         }
+    }
+
+    /// Rebuild a corrected URL from a previously stored one, keeping the host
+    /// and web port the user chose but refreshing the query parameters.
+    func rebuild(fromStored saved: String) -> URL? {
+        if var comps = URLComponents(string: saved), let host = comps.host {
+            let text = "\(host):\(comps.port ?? 8081)"
+            if let url = buildURL(from: text) {
+                UserDefaults.standard.set(url.absoluteString, forKey: "mirrorURL")
+                return url
+            }
+        }
+        // Stored value unusable - drop it so we prompt again.
+        UserDefaults.standard.removeObject(forKey: "mirrorURL")
+        return nil
     }
 
     // No URL saved / user cancelled -> load the default URL so the screen is never black.
@@ -59,13 +93,14 @@ class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
     func load(_ url: URL) {
         errorOverlay.isHidden = true
         spinner.startAnimating()
+        statusLabel.text = url.absoluteString
         webView.load(URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20))
     }
 
     func promptForURL(defaultURL: String? = nil) {
         let defaultText = defaultURL ?? "192.168.50.188:8081"
         let alert = UIAlertController(title: "Mirror URL",
-                                       message: "Enter the other phone's address. Use its web port (8081) â€” the VNC port is detected automatically.",
+                                       message: "Enter the other phone's address. Use its web port (8081) - the VNC port is detected automatically.",
                                        preferredStyle: .alert)
         alert.addTextField {
             $0.text = defaultText
@@ -199,13 +234,26 @@ var q: [URLQueryItem] = [
     override var preferredStatusBarUpdateAnimation: UIStatusBarAnimation { .fade }
     override var prefersHomeIndicatorAutoHidden: Bool { false }
 
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { spinner.stopAnimating() }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        spinner.stopAnimating()
+        statusLabel.text = "connected: " + (webView.url?.absoluteString ?? "")
+    }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        spinner.stopAnimating(); errorOverlay.isHidden = false
+        spinner.stopAnimating()
+        statusLabel.text = "FAILED: " + error.localizedDescription
+        errorOverlay.isHidden = false
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        spinner.stopAnimating(); errorOverlay.isHidden = false
+        spinner.stopAnimating()
+        statusLabel.text = "FAILED: " + error.localizedDescription
+        errorOverlay.isHidden = false
+    }
+
+    // A black canvas with no VNC traffic usually means the WebSocket never
+    // opened. Surfacing JS errors makes that diagnosable instead of silent.
+    func webView(_ webView: WKWebView, didReceive error: Error) {
+        statusLabel.text = "JS ERROR: " + error.localizedDescription
     }
 }
