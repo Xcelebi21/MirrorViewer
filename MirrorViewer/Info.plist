@@ -35,5 +35,10 @@
     </dict>
     <key>NSLocalNetworkUsageDescription</key>
     <string>To connect to the other device's mirror over the local/tailnet network.</string>
+    <key>NSBonjourServices</key>
+    <array>
+        <string>_rfb._tcp</string>
+        <string>_http._tcp</string>
+    </array>
 </dict>
 </plist>

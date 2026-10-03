@@ -83,7 +83,7 @@ buildErrorOverlay()
 
     // No URL saved / user cancelled -> load the default URL so the screen is never black.
     func loadDefault() {
-        let text = "192.168.50.188:8081"
+        let text = "iphone.tail83b63f.ts.net:8081"
         if let url = buildURL(from: text) {
             UserDefaults.standard.set(url.absoluteString, forKey: "mirrorURL")
             load(url)
@@ -98,7 +98,7 @@ buildErrorOverlay()
     }
 
     func promptForURL(defaultURL: String? = nil) {
-        let defaultText = defaultURL ?? "192.168.50.188:8081"
+        let defaultText = defaultURL ?? "iphone.tail83b63f.ts.net:8081"
         let alert = UIAlertController(title: "Mirror URL",
                                        message: "Enter the other phone's address. Use its web port (8081) - the VNC port is detected automatically.",
                                        preferredStyle: .alert)
