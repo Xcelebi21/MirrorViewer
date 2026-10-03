@@ -1,4 +1,4 @@
-import UIKit
+﻿import UIKit
 import WebKit
 
 class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
@@ -65,7 +65,7 @@ class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
     func promptForURL(defaultURL: String? = nil) {
         let defaultText = defaultURL ?? "192.168.50.188:8081"
         let alert = UIAlertController(title: "Mirror URL",
-                                       message: "Enter the other phone's address. Use its web port (8081) — the VNC port is detected automatically.",
+                                       message: "Enter the other phone's address. Use its web port (8081) â€” the VNC port is detected automatically.",
                                        preferredStyle: .alert)
         alert.addTextField {
             $0.text = defaultText
@@ -113,15 +113,15 @@ class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
         // the web port only, assume the default VNC port.
         let sockPort = (webPort == 8081 || webPort == 5801) ? 5901 : webPort
 
-        var q: [URLComponentsQueryItem] = [
-            URLComponentsQueryItem(name: "host", value: host),
-            URLComponentsQueryItem(name: "port", value: String(sockPort)),
-            URLComponentsQueryItem(name: "path", value: ""),
-            URLComponentsQueryItem(name: "autoconnect", value: "true"),
-            URLComponentsQueryItem(name: "resize", value: "scale"),
+        var q: [URLQueryItem] = [
+            URLQueryItem(name: "host", value: host),
+            URLQueryItem(name: "port", value: String(sockPort)),
+            URLQueryItem(name: "path", value: ""),
+            URLQueryItem(name: "autoconnect", value: "true"),
+            URLQueryItem(name: "resize", value: "scale"),
         ]
         if let saved = UserDefaults.standard.string(forKey: "mirrorPassword"), !saved.isEmpty {
-            q.append(URLComponentsQueryItem(name: "password", value: saved))
+            q.append(URLQueryItem(name: "password", value: saved))
         }
         comps.path = "/novnc/vnc.html"
         comps.queryItems = q
